@@ -6,9 +6,24 @@ import time
 # Total = 19 bytes
 
 PACKET_FORMAT = '!IIBqH'  # I = unsigned int, B = unsigned char, q = long long, H = unsigned short
-PACKET_SIZE = struct.calcsize(PACKET_FORMAT)  
+PACKET_SIZE = struct.calcsize(PACKET_FORMAT)
+
+VALID_CANDIDATES = {1, 2, 3}
+MAX_VOTER_ID = 0xFFFFFFFF  # 4-byte unsigned int max
+
 
 def create_packet(voter_id, seq_num, candidate_id):
+    """
+    Creates a 19-byte binary voting packet with checksum.
+    Raises ValueError for invalid inputs to prevent malformed packets.
+    """
+    if not (0 < voter_id <= MAX_VOTER_ID):
+        raise ValueError(f"voter_id must be between 1 and {MAX_VOTER_ID}")
+    if candidate_id not in VALID_CANDIDATES:
+        raise ValueError(f"candidate_id must be one of {VALID_CANDIDATES}")
+    if seq_num < 0:
+        raise ValueError("seq_num must be non-negative")
+
     timestamp = int(time.time())
     # Pack everything except checksum first
     partial = struct.pack('!IIBq', voter_id, seq_num, candidate_id, timestamp)
@@ -18,27 +33,38 @@ def create_packet(voter_id, seq_num, candidate_id):
     full_packet = struct.pack(PACKET_FORMAT, voter_id, seq_num, candidate_id, timestamp, checksum)
     return full_packet
 
+
 def parse_packet(raw_data):
+    """
+    Parses and validates a raw 19-byte binary packet.
+    Returns a dict on success, or None on size mismatch / checksum failure.
+    """
     if len(raw_data) != PACKET_SIZE:
         print(f"[ERROR] Invalid packet size: {len(raw_data)} bytes (expected {PACKET_SIZE})")
         return None
-    voter_id, seq_num, candidate_id, timestamp, received_checksum = struct.unpack(PACKET_FORMAT, raw_data)
+
+    try:
+        voter_id, seq_num, candidate_id, timestamp, received_checksum = struct.unpack(PACKET_FORMAT, raw_data)
+    except struct.error as e:
+        print(f"[ERROR] Failed to unpack packet: {e}")
+        return None
+
     # Verify checksum
     partial = struct.pack('!IIBq', voter_id, seq_num, candidate_id, timestamp)
     expected_checksum = sum(partial) % 65536
+
     if received_checksum != expected_checksum:
-        print(f"[ERROR] Checksum mismatch! Packet may be corrupted.")
+        print(f"[ERROR] Checksum mismatch! Expected {expected_checksum}, got {received_checksum}. Packet may be corrupted.")
         return None
+
+    # Validate field ranges
+    if voter_id == 0:
+        print("[ERROR] Invalid voter_id=0 in packet.")
+        return None
+
     return {
         'voter_id': voter_id,
         'seq_num': seq_num,
         'candidate_id': candidate_id,
         'timestamp': timestamp
     }
-
-#used for debugging if required
-'''def display_packet(packet_dict):
-    print(f"  Voter ID     : {packet_dict['voter_id']}")
-    print(f"  Seq Number   : {packet_dict['seq_num']}")
-    print(f"  Candidate    : {packet_dict['candidate_id']}")
-    print(f"  Timestamp    : {packet_dict['timestamp']}")'''
