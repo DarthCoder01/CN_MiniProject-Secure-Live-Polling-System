@@ -1,20 +1,84 @@
-# Secure Live Polling and Voting System
+# Secure Live Polling System
 
-## Project Overview
-This project implements a secure networked application using low-level socket programming over UDP. It features multiple concurrent clients, custom binary packet formatting, duplicate vote detection, and strictly utilizes DTLS (Datagram Transport Layer Security) for all data exchanges.
+A real-time voting application built with low-level UDP socket programming. All traffic is encrypted using **DTLS (Datagram Transport Layer Security)**. Supports multiple concurrent voters, custom binary packets, duplicate detection, and live result broadcasting.
+
+---
 
 ## Architecture
-* **Server:** Python script running on an Ubuntu VM, bound to `0.0.0.0:5005`.
-* **Clients:** Python scripts distributed across the local network.
-* **Protocol:** UDP (`SOCK_DGRAM`) wrapped in DTLS (`python3-dtls`).
 
-## Setup Steps
-1. **Prerequisites:** Ensure Python 3 is installed.
-2. **Install Dependencies:** Run `pip install python3-dtls` on all machines.
-3. **Generate Security Certificates (Server Only):** Run the following OpenSSL command in the server directory:
-   `openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout server.key -out server.crt`
+```
+Client 1 ──┐
+Client 2 ──┼──► UDP + DTLS ──► Server (0.0.0.0:5005)
+Client N ──┘                        │
+                               ┌────▼─────┐
+                               │  Thread  │  (one per client)
+                               │  + Stats │
+                               └──────────┘
+```
 
-## Usage Instructions
-1. **Start the Server:** Execute `python3 server.py` on the host machine.
-2. **Configure Clients:** Open `client.py` and modify the `SERVER_HOST` variable to match the server's IP address.
-3. **Start the Clients:** Execute `python3 client.py` on client machines and follow the on-screen voting prompts.
+| File | Role |
+|---|---|
+| `server.py` | Accepts DTLS connections, validates votes, tracks stats |
+| `client.py` | Voting UI, sends encrypted packets, shows live results |
+| `packet.py` | 19-byte binary packet — encode, decode, checksum |
+| `stats.py` | Votes, duplicates, latency, throughput tracking |
+| `stress_test.py` | Simulates N concurrent voters for performance testing |
+
+---
+
+## Packet Format
+
+```
+| voter_id (4B) | seq_num (4B) | candidate_id (1B) | timestamp (8B) | checksum (2B) |
+                                                              Total = 19 bytes
+```
+
+---
+
+## Setup
+
+**1. Install dependency** (all machines):
+```bash
+pip install python3-dtls
+```
+
+**2. Generate certificate** (server machine only):
+```bash
+openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout server.key -out server.crt -subj "/CN=polling-server"
+```
+
+---
+
+## Usage
+
+**Start server:**
+```bash
+python3 server.py
+```
+
+**Configure client** — open `client.py` and set:
+```python
+SERVER_HOST = "192.168.x.x"  # server's IP address
+```
+
+**Start client:**
+```bash
+python3 client.py
+```
+Follow the on-screen menu to vote. Live results appear every 5 seconds automatically.
+
+**Run performance test:**
+```bash
+python3 stress_test.py --host 192.168.x.x --voters 20
+```
+
+---
+
+## Key Features
+
+- **DTLS encryption** — all votes encrypted over UDP end-to-end
+- **Duplicate detection** — each voter ID can only vote once
+- **Checksum validation** — corrupted packets are detected and dropped
+- **ACK + retry** — client retries up to 3 times if no acknowledgment received
+- **Live results** — background thread polls server every 5 seconds
+- **Performance metrics** — latency, throughput, and packet loss tracked server-side
