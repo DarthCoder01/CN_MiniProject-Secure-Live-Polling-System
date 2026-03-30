@@ -176,7 +176,7 @@ def run_stress_test(server_host, server_port, num_voters, inter_vote_delay_ms):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress-test the polling server")
-    parser.add_argument("--host",   default="192.168.0.104", help="Server IP address")
+    parser.add_argument("--host",   default="10.112.74.100", help="Server IP address")
     parser.add_argument("--port",   type=int, default=5005,  help="Server port")
     parser.add_argument("--voters", type=int, default=20,    help="Number of concurrent voters")
     parser.add_argument("--delay",  type=int, default=0,     help="Max random inter-vote delay in ms")

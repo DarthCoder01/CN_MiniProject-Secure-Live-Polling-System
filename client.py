@@ -16,7 +16,7 @@ from packet import create_packet
 # Patch the standard Python sockets to support UDP over DTLS
 do_patch()
 
-SERVER_HOST = "192.168.0.104"   # ← update to match the server's IP
+SERVER_HOST = "10.112.74.100"   # ← update to match the server's IP
 SERVER_PORT = 5005
 
 CANDIDATES = {1: "Alice", 2: "Bob", 3: "Charlie"}
